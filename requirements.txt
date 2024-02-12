@@ -1,0 +1,15 @@
+cloud-sql-python-connector
+Flask
+Flask-Caching
+Flask-Cors
+google
+google-api-core
+google-auth
+google-cloud
+google-cloud-core
+googleapis-common-protos
+gunicorn
+mysqlclient
+PyMySQL
+SQLAlchemy
+jsonpickle
