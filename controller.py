@@ -1,7 +1,9 @@
+import random
+
 from flask import Flask, request
 from flask_cors import CORS
 from flask_caching import Cache
-from sqlalchemy import select, text, insert
+from sqlalchemy import text
 from sqlalchemy.orm.scoping import scoped_session
 import os
 import models
@@ -17,6 +19,20 @@ app = Flask(__name__, static_folder='public')
 app.config.from_mapping(config)
 cache = Cache(app)
 CORS(app)
+
+
+@app.route('/version/', strict_slashes=False)
+def version():
+    return '0.0.1'
+
+
+@app.route('/', strict_slashes=False)
+def health_check():
+    s = Session()
+    assertion_id_query = text('SELECT assertion_id FROM assertion ORDER BY RAND() LIMIT 10')
+    assertions_id_list = [row for row, in s.execute(assertion_id_query)]
+    sample_id_list = random.sample(assertions_id_list, 5)
+    return sample_id_list
 
 
 @app.route('/api/sentences/', methods=['POST'], strict_slashes=False)
@@ -73,6 +89,11 @@ def get_assertion_json(assertion) -> dict:
         evidence_list.append(ev)
     output["evidence_list"] = evidence_list
     return output
+
+
+@app.teardown_appcontext
+def shutdown_session(response_or_exc):
+    Session.remove()
 
 
 username = os.getenv('MYSQL_DATABASE_USER', None)
