@@ -49,36 +49,26 @@ def get_assertion_ids(session, id_list: list[str]) -> list[str]:
 def get_assertion_json(assertion) -> dict:
     output = {
         "assertion_id": assertion.assertion_id,
-        "subject": assertion.subject_uniprot.uniprot if assertion.subject_uniprot else assertion.subject_curie,
-        "object": assertion.object_uniprot.uniprot if assertion.object_uniprot else assertion.object_curie,
+        "subject": assertion.subject_curie,
+        "object": assertion.object_curie,
         "association": assertion.association_curie
     }
     evidence_list = []
     for evidence in assertion.evidence_list:
-        is_current = False
-        for version in evidence.version:
-            if version.version == 2:
-                is_current = True
-        if not is_current:
-            continue
-        top_predicate = evidence.evidence_scores[0]
-        for predicate in evidence.evidence_scores:
-            if predicate.score > top_predicate.score:
-                top_predicate = predicate
         ev = {
             "evidence_id": evidence.evidence_id,
             "sentence": evidence.sentence,
             "document_id": evidence.document_id,
             "document_zone": evidence.document_zone,
-            "document_year": evidence.actual_year.year if evidence.actual_year else evidence.document_year_published,
-            "subject_span_start": evidence.subject_entity.span.split('|')[0],
-            "subject_span_end": evidence.subject_entity.span.split('|')[1],
-            "subject_text": evidence.subject_entity.covered_text,
-            "object_span_start": evidence.object_entity.span.split('|')[0],
-            "object_span_end": evidence.object_entity.span.split('|')[1],
-            "object_text": evidence.object_entity.covered_text,
-            "predicate": top_predicate.predicate_curie,
-            "score": top_predicate.score
+            "document_year": evidence.document_year_published,
+            "subject_span_start": evidence.subject_span.split('|')[0],
+            "subject_span_end": evidence.subject_span.split('|')[1],
+            "subject_text": evidence.subject_covered_text,
+            "object_span_start": evidence.object_span.split('|')[0],
+            "object_span_end": evidence.object_span.split('|')[1],
+            "object_text": evidence.object_covered_text,
+            "predicate": evidence.predicate_curie,
+            "score": evidence.score
         }
         evidence_list.append(ev)
     output["evidence_list"] = evidence_list
