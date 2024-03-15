@@ -36,25 +36,27 @@ def health_check():
 
 
 @app.route('/api/sentences/', methods=['POST'], strict_slashes=False)
-@cache.cached(timeout=30)
 def assertion_lookup():
     s = Session()
     if not request.is_json:
         return "{}"
     # print(request.data)
     request_dict = json.loads(request.data)
+    if 'ids' not in request_dict:
+        return '{}'
     requested_id_list = [requested_id.replace('tmkp:', '') for requested_id in request_dict['ids']]
-    # print(requested_id_list)
+    evidence_limit = request_dict['limit'] if 'limit' in request_dict and isinstance(request_dict['limit'], int) else 0
+    score_threshold = request_dict['threshold'] if 'threshold' in request_dict and isinstance(request_dict['threshold'], float) else 0.0
     assertion_id_list = list(set(get_assertion_ids(s, requested_id_list)))
-    # print(assertion_id_list)
     if len(assertion_id_list) == 0:
         assertion_id_list = list(set(requested_id_list))
     assertion_query_by_id = s.query(models.Assertion).filter(models.Assertion.assertion_id.in_(assertion_id_list))
     if assertion_query_by_id.count() == 0:
         return "{}"
-    assertions = [get_assertion_json(assertion) for assertion in assertion_query_by_id.all()]
+    assertions = [get_assertion_json(assertion, limit=evidence_limit, threshold=score_threshold)
+                  for assertion in assertion_query_by_id.all()]
 
-    return jsonpickle.encode(assertions, unpicklable=False)
+    return jsonpickle.encode([a for a in assertions if len(a['evidence_list']) > 0], unpicklable=False)
 
 
 def get_assertion_ids(session, id_list: list[str]) -> list[str]:
@@ -62,7 +64,8 @@ def get_assertion_ids(session, id_list: list[str]) -> list[str]:
     return [row for row, in session.execute(assertion_id_query, {'ids': id_list})]
 
 
-def get_assertion_json(assertion) -> dict:
+#todo add the type hint for the return value
+def get_assertion_json(assertion, limit=5, threshold=0):
     output = {
         "assertion_id": assertion.assertion_id,
         "subject": assertion.subject_curie,
@@ -70,7 +73,15 @@ def get_assertion_json(assertion) -> dict:
         "association": assertion.association_curie
     }
     evidence_list = []
+    assertion.evidence_list.sort(key=lambda x: x.score, reverse=True)
+    # print([ev.score for ev in assertion.evidence_list[:5]])
     for evidence in assertion.evidence_list:
+        if threshold > 0 and evidence.score < threshold:
+            continue
+        if 0 < limit <= len(evidence_list):
+            break
+        if evidence.document_zone == 'reference':
+            continue
         ev = {
             "evidence_id": evidence.evidence_id,
             "sentence": evidence.sentence,
